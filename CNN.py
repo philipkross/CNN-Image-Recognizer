@@ -73,76 +73,19 @@ def testing(model, dataloader, lossfn, device, accufn):
     avg_acc = total_acc / len(dataloader)
     return avg_loss, avg_acc
 
-# -----------------------------
-# Dataset download & setup
-# -----------------------------
+
 datapath = Path("data/")
 imagepath = datapath / "pizza_steak_sushi"
 
-# # Setup pizza_steak_sushi dataset
-# if not imagepath.is_dir():
-#     imagepath.mkdir(parents=True, exist_ok=True)
-#     with open(datapath / "pizza_steak_sushi.zip", "wb") as f:
-#         request = requests.get("https://github.com/mrdbourke/pytorch-deep-learning/raw/main/data/pizza_steak_sushi.zip")
-#         f.write(request.content)
-#     with zipfile.ZipFile(datapath / "pizza_steak_sushi.zip", "r") as zip_ref:
-#         zip_ref.extractall(imagepath)
 
 traindir = imagepath / "train"
 testdir = imagepath / "test"
 
-# # Helper: copy N random images
-# def copy_subset(src, dst, n=1000):
-#     files = [f for f in os.listdir(src) if f.lower().endswith((".jpg", ".png", ".jpeg"))]
-#     subset = random.sample(files, min(n, len(files)))
-#     for fname in subset:
-#         shutil.copy(src / fname, dst / fname)
-
-# # Setup Stanford Cars dataset
-# cache_path = Path(kagglehub.dataset_download("eduardo4jesus/stanford-cars-dataset"))
-# train_cars_target = imagepath / "train" / "cars"
-# test_cars_target = imagepath / "test" / "cars"
-# train_cars_target.mkdir(parents=True, exist_ok=True)
-# test_cars_target.mkdir(parents=True, exist_ok=True)
-
-# # Only copy if folders are empty
-# if not any(train_cars_target.iterdir()):
-#     train_cars_source = cache_path / "cars_train" / "cars_train"
-#     test_cars_source = cache_path / "cars_test" / "cars_test"
-#     copy_subset(train_cars_source, train_cars_target, 1000)
-#     copy_subset(test_cars_source, test_cars_target, 20)
-
-# # Setup Bikes dataset from local zip
-# bikes_zip_path = Path(r"C:\Users\kross\Documents\AAApytor\05Food\data\Bikes.zip")
-# train_bikes_target = imagepath / "train" / "bikes"
-# test_bikes_target = imagepath / "test" / "bikes"
-# train_bikes_target.mkdir(parents=True, exist_ok=True)
-# test_bikes_target.mkdir(parents=True, exist_ok=True)
-
-# # Only copy if folders are empty
-# if not any(train_bikes_target.iterdir()) and bikes_zip_path.exists():
-#     temp_bikes_dir = datapath / "temp_bikes"
-#     temp_bikes_dir.mkdir(exist_ok=True)
-    
-#     with zipfile.ZipFile(bikes_zip_path, "r") as zip_ref:
-#         zip_ref.extractall(temp_bikes_dir)
-    
-#     train_bikes_source = temp_bikes_dir / "images.cv_93fdtqurllrwgoh8yn7ge" / "data" / "train" / "motorbike"
-#     test_bikes_source = temp_bikes_dir / "images.cv_93fdtqurllrwgoh8yn7ge" / "data" / "test" / "motorbike"
-    
-#     if train_bikes_source.exists():
-#         copy_subset(train_bikes_source, train_bikes_target, 1000)
-#     if test_bikes_source.exists():
-#         copy_subset(test_bikes_source, test_bikes_target, 20)
-    
-#     shutil.rmtree(temp_bikes_dir)
-# elif not bikes_zip_path.exists():
-#     print(f"Warning: Bikes zip not found at {bikes_zip_path}")
 
 # -----------------------------
 # Model
 # -----------------------------
-class Food(nn.Module):
+class CNN(nn.Module):
     def __init__(self, input_shape: int, hidden_units: int, output_shape: int):
         super().__init__()
         self.convblock1 = nn.Sequential(
@@ -200,7 +143,7 @@ testdataloader = DataLoader(testdata, batch_size=32, shuffle=False, drop_last=Fa
 # -----------------------------
 # Model init, loss, optimizer
 # -----------------------------
-food = Food(input_shape=3, hidden_units=64, output_shape=5).to(device)
+cnn = CNN(input_shape=3, hidden_units=64, output_shape=5).to(device)
 
 
 
@@ -211,7 +154,7 @@ class_counts = torch.tensor([986, 696, 692,1000,1000], dtype=torch.float)
 class_weights = 1.0 / class_counts
 class_weights = class_weights / class_weights.sum() * len(class_counts)
 lossfn = nn.CrossEntropyLoss(weight=class_weights.to(device))
-optim = torch.optim.Adam(food.parameters(), lr=0.0005)
+optim = torch.optim.Adam(cnn.parameters(), lr=0.0005)
 
 print(f"Training samples: {len(train_og_aug)}, Testing samples: {len(testdata)}")
 
@@ -235,7 +178,7 @@ for cls, count in class_counts.items():
 epochs = 25
 for epoch in range(epochs):
     trainloss, trainacc = training(
-        model=food,
+        model=cnn,
         dataloader=og_aug_traindataloader,
         lossfn=lossfn,
         optimizer=optim,
@@ -244,7 +187,7 @@ for epoch in range(epochs):
         print_every=3
     )
     testloss, testacc = testing(
-        model=food,
+        model=cnn,
         dataloader=testdataloader,
         lossfn=lossfn,
         accufn=accufn,
@@ -299,12 +242,12 @@ def plot_loss_curves(results):
 # -----------------------------
 #plot_loss_curves(results)
 
-#torch.save(food.state_dict(), "food_model_weights.pth")
+#torch.save(cnn.state_dict(), "cnn_model_weights.pth")
 # Load model for inference
-food = Food(input_shape=3, hidden_units=64, output_shape=5)
-food.load_state_dict(torch.load("food_model_weights.pth"))
-food.to(device)
-food.eval()
+cnn = CNN(input_shape=3, hidden_units=64, output_shape=5)
+cnn.load_state_dict(torch.load("cnn_model_weights.pth"))
+cnn.to(device)
+cnn.eval()
 
 # Prepare test samples, predictions, labels
 testsamples = []
@@ -318,7 +261,7 @@ for i, (X, y) in enumerate(testdataloaderflopper):
     testlabels.extend(y)
     with torch.inference_mode():
         X = X.to(device)
-        logits = food(X)
+        logits = cnn(X)
         preds = torch.softmax(logits, dim=1).argmax(dim=1)
         predclasses.extend(preds.cpu())
     if len(testsamples) >= 9:
